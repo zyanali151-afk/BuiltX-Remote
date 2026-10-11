@@ -20,6 +20,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var typedPreview: TextView
     private var connected = false
     private val typedBuffer = StringBuilder()
+    private var certPath = ""
+    private var keyPath = ""
 
     val BG_DARK = Color.parseColor("#0A0A12")
     val BG_CARD = Color.parseColor("#16162A")
@@ -37,6 +39,9 @@ class MainActivity : AppCompatActivity() {
 
         if (!Python.isStarted()) Python.start(AndroidPlatform(this))
         controller = Python.getInstance().getModule("tv_controller")
+
+        certPath = "${filesDir.absolutePath}/cert.pem"
+        keyPath = "${filesDir.absolutePath}/key.pem"
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -61,12 +66,9 @@ class MainActivity : AppCompatActivity() {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
         }
         topBar.addView(statusText)
-        val sp = View(this).apply { layoutParams = LinearLayout.LayoutParams(0, 1, 1f) }
-        topBar.addView(sp)
+        topBar.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(0, 1, 1f) })
         topBar.addView(Button(this).apply {
-            text = "⟳"
-            textSize = 18f
-            setTextColor(TEXT_WHITE)
+            text = "⟳"; textSize = 18f; setTextColor(TEXT_WHITE)
             background = roundedBackground(ACCENT, 100f)
             layoutParams = LinearLayout.LayoutParams(120, 120)
             setOnClickListener { connectToTV() }
@@ -99,7 +101,6 @@ class MainActivity : AppCompatActivity() {
         root.addView(tabs)
         kTab.background = roundedBackground(ACCENT, 20f)
 
-        // CONTENT
         contentArea = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(20, 0, 20, 20)
@@ -116,10 +117,9 @@ class MainActivity : AppCompatActivity() {
     private fun connectToTV() {
         statusText.text = "  ● Connecting"
         statusText.setTextColor(YELLOW)
-        val certPath = "${filesDir.absolutePath}/cert.pem"
-        val keyPath = "${filesDir.absolutePath}/key.pem"
-        copyCerts(certPath, keyPath)
+        copyCerts()
         try {
+            controller.callAttr("set_cert_paths", certPath, keyPath)
             val result = controller.callAttr("connect", certPath, keyPath).toString()
             if (result.contains("Connected") || result.contains("Already")) {
                 connected = true
@@ -137,9 +137,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun copyCerts(cp: String, kp: String) {
+    private fun copyCerts() {
         try {
-            val cf = java.io.File(cp); val kf = java.io.File(kp)
+            val cf = java.io.File(certPath); val kf = java.io.File(keyPath)
             if (!cf.exists()) assets.open("cert.pem").use { i -> cf.outputStream().use { o -> i.copyTo(o) } }
             if (!kf.exists()) assets.open("key.pem").use { i -> kf.outputStream().use { o -> i.copyTo(o) } }
         } catch (_: Exception) {}
@@ -151,7 +151,6 @@ class MainActivity : AppCompatActivity() {
         layoutParams = LinearLayout.LayoutParams(0, 130, 1f).apply { marginStart = 8; marginEnd = 8 }
     }
 
-    // ══════ KEYBOARD ══════
     private fun showKeyboard() {
         contentArea.removeAllViews()
         addRow(listOf("`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "⌫"))
@@ -171,7 +170,7 @@ class MainActivity : AppCompatActivity() {
                 "CTRL", "ALT", "SUPER", "⇧", "⇪", "⇥" -> 0.9f
                 else -> 1f
             }
-            val btn = Button(this).apply {
+            row.addView(Button(this).apply {
                 text = k; textSize = 10f; setTextColor(TEXT_WHITE)
                 background = roundedBackground(BG_BUTTON, 10f)
                 layoutParams = LinearLayout.LayoutParams(0, 110, weight).apply {
@@ -179,8 +178,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 setPadding(0, 0, 0, 0); isAllCaps = false
                 setOnClickListener { onKey(k) }
-            }
-            row.addView(btn)
+            })
         }
         contentArea.addView(row)
     }
@@ -196,16 +194,26 @@ class MainActivity : AppCompatActivity() {
             "CTRL" -> { sendKeyRaw("KEYCODE_CTRL_LEFT"); addTyped("^") }
             "ALT" -> { sendKeyRaw("KEYCODE_ALT_LEFT"); addTyped("⎇") }
             "SUPER" -> { sendKeyRaw("KEYCODE_META_LEFT"); addTyped("⌘") }
-            "SPACE", "⎵ SPACE" -> { sendTextRaw(" "); addTyped(" ") }
+            "SPACE", "⎵ SPACE" -> { sendTextAsync(" "); addTyped(" ") }
             "↑" -> sendKeyRaw("KEYCODE_DPAD_UP")
             "↓" -> sendKeyRaw("KEYCODE_DPAD_DOWN")
             "←" -> sendKeyRaw("KEYCODE_DPAD_LEFT")
             "→" -> sendKeyRaw("KEYCODE_DPAD_RIGHT")
-            else -> { sendTextRaw(k); addTyped(k) }
+            else -> { sendTextAsync(k); addTyped(k) }
         }
     }
 
-    // ══════ GAMEPAD ══════
+    private fun sendTextAsync(text: String) {
+        if (!connected) { toast("Not connected"); return }
+        Thread {
+            try {
+                controller.callAttr("send_text", text)
+            } catch (e: Exception) {
+                runOnUiThread { toast("Text err: ${e.message}") }
+            }
+        }.start()
+    }
+
     private fun showGamepad() {
         contentArea.removeAllViews()
         val dpad = LinearLayout(this).apply {
@@ -245,7 +253,6 @@ class MainActivity : AppCompatActivity() {
         contentArea.addView(sh)
     }
 
-    // ══════ MEDIA ══════
     private fun showMedia() {
         contentArea.removeAllViews()
         val vol = LinearLayout(this).apply {
@@ -267,7 +274,6 @@ class MainActivity : AppCompatActivity() {
         contentArea.addView(me)
     }
 
-    // ══════ HELPERS ══════
     private fun roundBtn(label: String, color: Int, action: () -> Unit): Button = Button(this).apply {
         text = label; textSize = 22f; setTextColor(TEXT_WHITE)
         background = roundedBackground(color, 200f)
@@ -304,25 +310,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ══════ PYTHON CALLS ══════
     private fun sendKeyRaw(name: String) {
         if (!connected) { toast("Not connected"); return }
         try { controller.callAttr("send_key", name) } catch (e: Exception) { toast("Key err: ${e.message}") }
-    }
-
-    private fun sendTextRaw(text: String) {
-        if (!connected) { toast("Not connected"); return }
-        try {
-            // RECONNECT for each text send (fixes IME timeout)
-            controller.callAttr("reconnect")
-            Thread.sleep(300)
-            controller.callAttr("connect",
-                "${filesDir.absolutePath}/cert.pem",
-                "${filesDir.absolutePath}/key.pem")
-            controller.callAttr("send_text", text)
-        } catch (e: Exception) {
-            toast("Text err: ${e.message}")
-        }
     }
 
     private fun toast(m: String) = Toast.makeText(this, m, Toast.LENGTH_SHORT).show()
