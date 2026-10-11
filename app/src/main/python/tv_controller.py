@@ -1,4 +1,4 @@
-"""BuiltX Remote - Python TV Controller"""
+"""BuiltX Remote — Python TV Controller"""
 import os
 import asyncio
 import time
@@ -8,6 +8,8 @@ from androidtvremote2.remote import RemoteKeyCode
 _tv_instance = None
 _loop = None
 _connected = False
+_CERT_PATH = ""
+_KEY_PATH = ""
 TV_IP = "192.168.1.2"
 
 
@@ -19,8 +21,18 @@ def _get_loop():
     return _loop
 
 
+def set_cert_paths(certfile, keyfile):
+    global _CERT_PATH, _KEY_PATH
+    _CERT_PATH = certfile
+    _KEY_PATH = keyfile
+    return "Paths set"
+
+
 def connect(certfile, keyfile):
-    global _tv_instance, _connected
+    global _tv_instance, _connected, _CERT_PATH, _KEY_PATH
+    _CERT_PATH = certfile
+    _KEY_PATH = keyfile
+
     if _connected and _tv_instance is not None:
         return "Already connected"
 
@@ -41,7 +53,7 @@ def connect(certfile, keyfile):
         return "Connected"
     except Exception as e:
         _connected = False
-        return f"Error: {e}"
+        return "Error: " + str(e)
 
 
 def send_key(keycode_name):
@@ -50,63 +62,43 @@ def send_key(keycode_name):
         return "Not connected"
     keycode = getattr(RemoteKeyCode, keycode_name, None)
     if not keycode:
-        return f"Unknown key: {keycode_name}"
+        return "Unknown key: " + keycode_name
     try:
         _tv_instance.send_key_command(keycode)
         return "OK"
     except Exception as e:
-        return f"Error: {e}"
+        return "Error: " + str(e)
 
 
 def send_text(text):
-    """Send text - with reconnect and delay"""
+    """Send text with reconnect + 2.5s IME wait"""
     global _tv_instance, _connected
-    if not _tv_instance:
-        return "Not connected"
-    
+    if not _CERT_PATH:
+        return "No cert path"
+
     try:
-        # Reconnect fresh
+        # Disconnect
         try:
-            _tv_instance.disconnect()
+            if _tv_instance:
+                _tv_instance.disconnect()
         except Exception:
             pass
         _tv_instance = None
         _connected = False
-        time.sleep(0.2)
-        
+
         # Reconnect
-        certfile = os.path.join(os.environ.get("BUILTX_CERT", ""), "cert.pem") if os.environ.get("BUILTX_CERT") else None
-        keyfile = os.path.join(os.environ.get("BUILTX_CERT", ""), "key.pem") if os.environ.get("BUILTX_CERT") else None
-        
-        # Use global cert paths set by Kotlin
-        global _CERT_PATH, _KEY_PATH
-        if not _CERT_PATH:
-            return "No cert path set"
-        
         result = connect(_CERT_PATH, _KEY_PATH)
         if "Error" in result:
             return result
-        
-        # CRITICAL: Wait for IME to establish
+
+        # Wait for IME
         time.sleep(2.5)
-        
-        # Now send
+
+        # Send
         _tv_instance.send_text(text)
         return "OK"
     except Exception as e:
-        return f"Error: {e}"
-
-
-_CERT_PATH = ""
-_KEY_PATH = ""
-
-
-def set_cert_paths(certfile, keyfile):
-    """Kotlin calls this on startup to register cert paths"""
-    global _CERT_PATH, _KEY_PATH
-    _CERT_PATH = certfile
-    _KEY_PATH = keyfile
-    return "Paths set"
+        return "Error: " + str(e)
 
 
 def disconnect():

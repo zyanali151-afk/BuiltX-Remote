@@ -40,8 +40,8 @@ class MainActivity : AppCompatActivity() {
         if (!Python.isStarted()) Python.start(AndroidPlatform(this))
         controller = Python.getInstance().getModule("tv_controller")
 
-        certPath = "${filesDir.absolutePath}/cert.pem"
-        keyPath = "${filesDir.absolutePath}/key.pem"
+        certPath = filesDir.absolutePath + "/cert.pem"
+        keyPath = filesDir.absolutePath + "/key.pem"
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -68,7 +68,9 @@ class MainActivity : AppCompatActivity() {
         topBar.addView(statusText)
         topBar.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(0, 1, 1f) })
         topBar.addView(Button(this).apply {
-            text = "⟳"; textSize = 18f; setTextColor(TEXT_WHITE)
+            text = "⟳"
+            textSize = 18f
+            setTextColor(TEXT_WHITE)
             background = roundedBackground(ACCENT, 100f)
             layoutParams = LinearLayout.LayoutParams(120, 120)
             setOnClickListener { connectToTV() }
@@ -91,13 +93,30 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
             setPadding(20, 20, 20, 20)
         }
-        val kTab = makeTabButton("⌨ KEYBOARD")
-        val gTab = makeTabButton("🎮 GAMEPAD")
-        val mTab = makeTabButton("📺 MEDIA")
-        kTab.setOnClickListener { kTab.background = roundedBackground(ACCENT, 20f); gTab.background = roundedBackground(BG_BUTTON, 20f); mTab.background = roundedBackground(BG_BUTTON, 20f); showKeyboard() }
-        gTab.setOnClickListener { gTab.background = roundedBackground(ACCENT, 20f); kTab.background = roundedBackground(BG_BUTTON, 20f); mTab.background = roundedBackground(BG_BUTTON, 20f); showGamepad() }
-        mTab.setOnClickListener { mTab.background = roundedBackground(ACCENT, 20f); kTab.background = roundedBackground(BG_BUTTON, 20f); gTab.background = roundedBackground(BG_BUTTON, 20f); showMedia() }
-        tabs.addView(kTab); tabs.addView(gTab); tabs.addView(mTab)
+        val kTab = makeTabButton("KEYBOARD")
+        val gTab = makeTabButton("GAMEPAD")
+        val mTab = makeTabButton("MEDIA")
+        kTab.setOnClickListener {
+            kTab.background = roundedBackground(ACCENT, 20f)
+            gTab.background = roundedBackground(BG_BUTTON, 20f)
+            mTab.background = roundedBackground(BG_BUTTON, 20f)
+            showKeyboard()
+        }
+        gTab.setOnClickListener {
+            gTab.background = roundedBackground(ACCENT, 20f)
+            kTab.background = roundedBackground(BG_BUTTON, 20f)
+            mTab.background = roundedBackground(BG_BUTTON, 20f)
+            showGamepad()
+        }
+        mTab.setOnClickListener {
+            mTab.background = roundedBackground(ACCENT, 20f)
+            kTab.background = roundedBackground(BG_BUTTON, 20f)
+            gTab.background = roundedBackground(BG_BUTTON, 20f)
+            showMedia()
+        }
+        tabs.addView(kTab)
+        tabs.addView(gTab)
+        tabs.addView(mTab)
         root.addView(tabs)
         kTab.background = roundedBackground(ACCENT, 20f)
 
@@ -139,46 +158,67 @@ class MainActivity : AppCompatActivity() {
 
     private fun copyCerts() {
         try {
-            val cf = java.io.File(certPath); val kf = java.io.File(keyPath)
-            if (!cf.exists()) assets.open("cert.pem").use { i -> cf.outputStream().use { o -> i.copyTo(o) } }
-            if (!kf.exists()) assets.open("key.pem").use { i -> kf.outputStream().use { o -> i.copyTo(o) } }
-        } catch (_: Exception) {}
+            val cf = java.io.File(certPath)
+            val kf = java.io.File(keyPath)
+            if (!cf.exists()) {
+                assets.open("cert.pem").use { i -> cf.outputStream().use { o -> i.copyTo(o) } }
+            }
+            if (!kf.exists()) {
+                assets.open("key.pem").use { i -> kf.outputStream().use { o -> i.copyTo(o) } }
+            }
+        } catch (e: Exception) {
+            // Silent fail
+        }
     }
 
     private fun makeTabButton(label: String): Button = Button(this).apply {
-        text = label; textSize = 11f; setTextColor(TEXT_WHITE)
+        text = label
+        textSize = 11f
+        setTextColor(TEXT_WHITE)
         background = roundedBackground(BG_BUTTON, 20f)
-        layoutParams = LinearLayout.LayoutParams(0, 130, 1f).apply { marginStart = 8; marginEnd = 8 }
+        layoutParams = LinearLayout.LayoutParams(0, 130, 1f).apply {
+            marginStart = 8
+            marginEnd = 8
+        }
     }
 
+    // ═══════ KEYBOARD ═══════
     private fun showKeyboard() {
         contentArea.removeAllViews()
-        addRow(listOf("`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "⌫"))
-        addRow(listOf("⇥", "q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "[", "]", "\\"))
-        addRow(listOf("⇪", "a", "s", "d", "f", "g", "h", "j", "k", "l", ";", "'", "⏎"))
-        addRow(listOf("⇧", "z", "x", "c", "v", "b", "n", "m", ",", ".", "/", "⇧"))
-        addRow(listOf("CTRL", "ALT", "SUPER", "⎵ SPACE", "↑", "↓", "←", "→"))
+        addRow(listOf("`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "DEL"))
+        addRow(listOf("TAB", "q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "[", "]", "\\"))
+        addRow(listOf("CAPS", "a", "s", "d", "f", "g", "h", "j", "k", "l", ";", "'", "ENT"))
+        addRow(listOf("SHF", "z", "x", "c", "v", "b", "n", "m", ",", ".", "/", "SHF"))
+        addRow(listOf("CTRL", "ALT", "SUPER", "SPACE", "UP", "DN", "LF", "RT"))
     }
 
     private fun addRow(keys: List<String>) {
         val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
         }
         for (k in keys) {
             val weight = when (k) {
-                "SPACE", "⎵ SPACE" -> 3f
-                "CTRL", "ALT", "SUPER", "⇧", "⇪", "⇥" -> 0.9f
+                "SPACE" -> 4f
+                "CTRL", "ALT", "SUPER", "SHF", "CAPS", "TAB" -> 1f
                 else -> 1f
             }
-            row.addView(Button(this).apply {
-                text = k; textSize = 10f; setTextColor(TEXT_WHITE)
+            val btn = Button(this).apply {
+                text = k
+                textSize = 9f
+                setTextColor(TEXT_WHITE)
                 background = roundedBackground(BG_BUTTON, 10f)
                 layoutParams = LinearLayout.LayoutParams(0, 110, weight).apply {
-                    marginStart = 2; marginEnd = 2; topMargin = 2; bottomMargin = 2
+                    marginStart = 2
+                    marginEnd = 2
+                    topMargin = 2
+                    bottomMargin = 2
                 }
-                setPadding(0, 0, 0, 0); isAllCaps = false
+                setPadding(0, 0, 0, 0)
+                isAllCaps = false
                 setOnClickListener { onKey(k) }
-            })
+            }
+            row.addView(btn)
         }
         contentArea.addView(row)
     }
@@ -186,38 +226,43 @@ class MainActivity : AppCompatActivity() {
     private fun onKey(k: String) {
         haptic()
         when (k) {
-            "⌫" -> { sendKeyRaw("KEYCODE_DEL"); removeTyped() }
-            "⏎" -> { sendKeyRaw("KEYCODE_ENTER"); addTyped("⏎\n") }
-            "⇥" -> { sendKeyRaw("KEYCODE_TAB"); addTyped("⇥") }
-            "⇪" -> { sendKeyRaw("KEYCODE_CAPS_LOCK"); addTyped("⇪") }
-            "⇧" -> { sendKeyRaw("KEYCODE_SHIFT_LEFT"); addTyped("⇧") }
-            "CTRL" -> { sendKeyRaw("KEYCODE_CTRL_LEFT"); addTyped("^") }
-            "ALT" -> { sendKeyRaw("KEYCODE_ALT_LEFT"); addTyped("⎇") }
-            "SUPER" -> { sendKeyRaw("KEYCODE_META_LEFT"); addTyped("⌘") }
-            "SPACE", "⎵ SPACE" -> { sendTextAsync(" "); addTyped(" ") }
-            "↑" -> sendKeyRaw("KEYCODE_DPAD_UP")
-            "↓" -> sendKeyRaw("KEYCODE_DPAD_DOWN")
-            "←" -> sendKeyRaw("KEYCODE_DPAD_LEFT")
-            "→" -> sendKeyRaw("KEYCODE_DPAD_RIGHT")
+            "DEL" -> { sendKeyRaw("KEYCODE_DEL"); removeTyped() }
+            "ENT" -> { sendKeyRaw("KEYCODE_ENTER"); addTyped("\n") }
+            "TAB" -> { sendKeyRaw("KEYCODE_TAB"); addTyped("\t") }
+            "CAPS" -> sendKeyRaw("KEYCODE_CAPS_LOCK")
+            "SHF" -> sendKeyRaw("KEYCODE_SHIFT_LEFT")
+            "CTRL" -> sendKeyRaw("KEYCODE_CTRL_LEFT")
+            "ALT" -> sendKeyRaw("KEYCODE_ALT_LEFT")
+            "SUPER" -> sendKeyRaw("KEYCODE_META_LEFT")
+            "SPACE" -> { sendTextAsync(" "); addTyped(" ") }
+            "UP" -> sendKeyRaw("KEYCODE_DPAD_UP")
+            "DN" -> sendKeyRaw("KEYCODE_DPAD_DOWN")
+            "LF" -> sendKeyRaw("KEYCODE_DPAD_LEFT")
+            "RT" -> sendKeyRaw("KEYCODE_DPAD_RIGHT")
             else -> { sendTextAsync(k); addTyped(k) }
         }
     }
 
     private fun sendTextAsync(text: String) {
-        if (!connected) { toast("Not connected"); return }
+        if (!connected) {
+            toast("Not connected")
+            return
+        }
         Thread {
             try {
                 controller.callAttr("send_text", text)
             } catch (e: Exception) {
-                runOnUiThread { toast("Text err: ${e.message}") }
+                runOnUiThread { toast("Text err: " + e.message) }
             }
         }.start()
     }
 
+    // ═══════ GAMEPAD ═══════
     private fun showGamepad() {
         contentArea.removeAllViews()
         val dpad = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
             setPadding(0, 20, 0, 20)
         }
         val r1 = LinearLayout(this).apply { gravity = Gravity.CENTER }
@@ -234,7 +279,8 @@ class MainActivity : AppCompatActivity() {
         contentArea.addView(dpad)
 
         val abxy = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
             setPadding(0, 30, 0, 30)
         }
         abxy.addView(roundBtn("Y", YELLOW) { sendKeyRaw("KEYCODE_BUTTON_Y") })
@@ -244,7 +290,8 @@ class MainActivity : AppCompatActivity() {
         contentArea.addView(abxy)
 
         val sh = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
         }
         sh.addView(smallBtn("L1") { sendKeyRaw("KEYCODE_BUTTON_L1") })
         sh.addView(smallBtn("L2") { sendKeyRaw("KEYCODE_BUTTON_L2") })
@@ -253,48 +300,77 @@ class MainActivity : AppCompatActivity() {
         contentArea.addView(sh)
     }
 
+    // ═══════ MEDIA ═══════
     private fun showMedia() {
         contentArea.removeAllViews()
         val vol = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
             setPadding(0, 40, 0, 20)
         }
-        vol.addView(roundBtn("🔉", BG_BUTTON) { sendKeyRaw("KEYCODE_VOLUME_DOWN") })
-        vol.addView(roundBtn("🔇", BG_BUTTON) { sendKeyRaw("KEYCODE_VOLUME_MUTE") })
-        vol.addView(roundBtn("🔊", BG_BUTTON) { sendKeyRaw("KEYCODE_VOLUME_UP") })
+        vol.addView(roundBtn("VOL-", BG_BUTTON) { sendKeyRaw("KEYCODE_VOLUME_DOWN") })
+        vol.addView(roundBtn("MUTE", BG_BUTTON) { sendKeyRaw("KEYCODE_VOLUME_MUTE") })
+        vol.addView(roundBtn("VOL+", BG_BUTTON) { sendKeyRaw("KEYCODE_VOLUME_UP") })
         contentArea.addView(vol)
 
         val me = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
             setPadding(0, 30, 0, 20)
         }
-        me.addView(roundBtn("⏮", BG_BUTTON) { sendKeyRaw("KEYCODE_MEDIA_PREVIOUS") })
-        me.addView(roundBtn("⏯", BG_BUTTON) { sendKeyRaw("KEYCODE_MEDIA_PLAY_PAUSE") })
-        me.addView(roundBtn("⏭", BG_BUTTON) { sendKeyRaw("KEYCODE_MEDIA_NEXT") })
+        me.addView(roundBtn("PREV", BG_BUTTON) { sendKeyRaw("KEYCODE_MEDIA_PREVIOUS") })
+        me.addView(roundBtn("PLAY", BG_BUTTON) { sendKeyRaw("KEYCODE_MEDIA_PLAY_PAUSE") })
+        me.addView(roundBtn("NEXT", BG_BUTTON) { sendKeyRaw("KEYCODE_MEDIA_NEXT") })
         contentArea.addView(me)
+
+        val nav = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, 30, 0, 20)
+        }
+        nav.addView(roundBtn("BACK", BG_BUTTON) { sendKeyRaw("KEYCODE_BACK") })
+        nav.addView(roundBtn("HOME", BG_BUTTON) { sendKeyRaw("KEYCODE_HOME") })
+        nav.addView(roundBtn("PWR", RED) { sendKeyRaw("KEYCODE_POWER") })
+        contentArea.addView(nav)
     }
 
+    // ═══════ HELPERS ═══════
     private fun roundBtn(label: String, color: Int, action: () -> Unit): Button = Button(this).apply {
-        text = label; textSize = 22f; setTextColor(TEXT_WHITE)
+        text = label
+        textSize = 14f
+        setTextColor(TEXT_WHITE)
         background = roundedBackground(color, 200f)
-        layoutParams = LinearLayout.LayoutParams(180, 180).apply {
-            marginStart = 10; marginEnd = 10; topMargin = 8; bottomMargin = 8
+        layoutParams = LinearLayout.LayoutParams(200, 180).apply {
+            marginStart = 10
+            marginEnd = 10
+            topMargin = 8
+            bottomMargin = 8
         }
         setOnClickListener { action(); haptic() }
     }
 
     private fun smallBtn(label: String, action: () -> Unit): Button = Button(this).apply {
-        text = label; textSize = 11f; setTextColor(TEXT_WHITE)
+        text = label
+        textSize = 11f
+        setTextColor(TEXT_WHITE)
         background = roundedBackground(BG_BUTTON, 12f)
-        layoutParams = LinearLayout.LayoutParams(0, 90, 1f).apply { marginStart = 6; marginEnd = 6 }
+        layoutParams = LinearLayout.LayoutParams(0, 90, 1f).apply {
+            marginStart = 6
+            marginEnd = 6
+        }
         setOnClickListener { action(); haptic() }
     }
 
     private fun roundedBackground(color: Int, radius: Float): GradientDrawable =
-        GradientDrawable().apply { setColor(color); cornerRadius = radius }
+        GradientDrawable().apply {
+            setColor(color)
+            cornerRadius = radius
+        }
 
     private fun haptic() {
-        try { window.decorView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) } catch (_: Exception) {}
+        try {
+            window.decorView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+        } catch (e: Exception) {}
     }
 
     private fun addTyped(s: String) {
@@ -311,8 +387,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun sendKeyRaw(name: String) {
-        if (!connected) { toast("Not connected"); return }
-        try { controller.callAttr("send_key", name) } catch (e: Exception) { toast("Key err: ${e.message}") }
+        if (!connected) {
+            toast("Not connected")
+            return
+        }
+        try {
+            controller.callAttr("send_key", name)
+        } catch (e: Exception) {
+            toast("Key err: " + e.message)
+        }
     }
 
     private fun toast(m: String) = Toast.makeText(this, m, Toast.LENGTH_SHORT).show()
