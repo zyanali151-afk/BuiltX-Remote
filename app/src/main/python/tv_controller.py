@@ -1,4 +1,4 @@
-"""BuiltX Remote - Full keyboard via send_key_command"""
+"""BuiltX Remote - Python TV Controller"""
 import os
 import asyncio
 from androidtvremote2 import AndroidTVRemote
@@ -8,27 +8,6 @@ _tv_instance = None
 _loop = None
 _connected = False
 TV_IP = "192.168.1.2"
-
-# Character → KEYCODE map (Android HID codes)
-CHAR_MAP = {
-    'a': 'KEYCODE_A', 'b': 'KEYCODE_B', 'c': 'KEYCODE_C', 'd': 'KEYCODE_D',
-    'e': 'KEYCODE_E', 'f': 'KEYCODE_F', 'g': 'KEYCODE_G', 'h': 'KEYCODE_H',
-    'i': 'KEYCODE_I', 'j': 'KEYCODE_J', 'k': 'KEYCODE_K', 'l': 'KEYCODE_L',
-    'm': 'KEYCODE_M', 'n': 'KEYCODE_N', 'o': 'KEYCODE_O', 'p': 'KEYCODE_P',
-    'q': 'KEYCODE_Q', 'r': 'KEYCODE_R', 's': 'KEYCODE_S', 't': 'KEYCODE_T',
-    'u': 'KEYCODE_U', 'v': 'KEYCODE_V', 'w': 'KEYCODE_W', 'x': 'KEYCODE_X',
-    'y': 'KEYCODE_Y', 'z': 'KEYCODE_Z',
-    '0': 'KEYCODE_0', '1': 'KEYCODE_1', '2': 'KEYCODE_2', '3': 'KEYCODE_3',
-    '4': 'KEYCODE_4', '5': 'KEYCODE_5', '6': 'KEYCODE_6', '7': 'KEYCODE_7',
-    '8': 'KEYCODE_8', '9': 'KEYCODE_9',
-    ' ': 'KEYCODE_SPACE',
-    '\n': 'KEYCODE_ENTER',
-    '.': 'KEYCODE_PERIOD', ',': 'KEYCODE_COMMA', '?': 'KEYCODE_SLASH',
-    '!': 'KEYCODE_1', '-': 'KEYCODE_MINUS', '=': 'KEYCODE_EQUALS',
-    ';': 'KEYCODE_SEMICOLON', "'": 'KEYCODE_APOSTROPHE',
-    '/': 'KEYCODE_SLASH', '\\': 'KEYCODE_BACKSLASH',
-    '[': 'KEYCODE_LEFT_BRACKET', ']': 'KEYCODE_RIGHT_BRACKET',
-}
 
 
 def _get_loop():
@@ -65,34 +44,13 @@ def connect(certfile, keyfile):
 
 
 def send_key(keycode_name):
+    """Send a key command (for D-pad, volume, etc.)"""
     global _tv_instance
     if not _tv_instance:
         return "Not connected"
     keycode = getattr(RemoteKeyCode, keycode_name, None)
     if not keycode:
-        return f"Unknown: {keycode_name}"
-    try:
-        _tv_instance.send_key_command(keycode)
-        return "OK"
-    except Exception as e:
-        return f"Error: {e}"
-
-
-def send_char(char):
-    """Send a single character as a key command"""
-    global _tv_instance
-    if not _tv_instance:
-        return "Not connected"
-    
-    # Get keycode name
-    keycode_name = CHAR_MAP.get(char.lower())
-    if not keycode_name:
-        return f"No keycode for '{char}'"
-    
-    keycode = getattr(RemoteKeyCode, keycode_name, None)
-    if not keycode:
-        return f"Missing keycode: {keycode_name}"
-    
+        return f"Unknown key: {keycode_name}"
     try:
         _tv_instance.send_key_command(keycode)
         return "OK"
@@ -101,7 +59,7 @@ def send_char(char):
 
 
 def send_text(text):
-    """Fallback: send text via IME (only works in text fields)"""
+    """Send text via IME channel (for letters/numbers)"""
     global _tv_instance
     if not _tv_instance:
         return "Not connected"
@@ -112,19 +70,17 @@ def send_text(text):
         return f"Error: {e}"
 
 
-def send_modifier(name):
-    """Send modifier key (SHIFT, CTRL, ALT)"""
-    global _tv_instance
-    if not _tv_instance:
-        return "Not connected"
-    keycode = getattr(RemoteKeyCode, name, None)
-    if not keycode:
-        return f"Unknown modifier: {name}"
+def reconnect():
+    """Force reconnect to refresh IME"""
+    global _tv_instance, _connected
     try:
-        _tv_instance.send_key_command(keycode)
-        return "OK"
-    except Exception as e:
-        return f"Error: {e}"
+        if _tv_instance:
+            _tv_instance.disconnect()
+    except Exception:
+        pass
+    _tv_instance = None
+    _connected = False
+    return "Reconnected"
 
 
 def disconnect():
