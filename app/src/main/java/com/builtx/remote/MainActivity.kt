@@ -18,8 +18,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var contentArea: LinearLayout
     private lateinit var statusText: TextView
     private lateinit var typedPreview: TextView
+    private lateinit var textInput: EditText
     private var connected = false
-    private val typedBuffer = StringBuilder()
     private var certPath = ""
     private var keyPath = ""
 
@@ -76,17 +76,6 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener { connectToTV() }
         })
         root.addView(topBar)
-
-        // TYPING PREVIEW
-        typedPreview = TextView(this).apply {
-            text = "⌨  "
-            setTextColor(ACCENT_GLOW)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-            setPadding(40, 20, 40, 20)
-            setBackgroundColor(BG_CARD)
-            minHeight = 90
-        }
-        root.addView(typedPreview)
 
         // TABS
         val tabs = LinearLayout(this).apply {
@@ -179,103 +168,150 @@ class MainActivity : AppCompatActivity() {
     // ═══════ KEYBOARD ═══════
     private fun showKeyboard() {
         contentArea.removeAllViews()
-        addRow(listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0"))
-        addRow(listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p"))
-        addRow(listOf("a", "s", "d", "f", "g", "h", "j", "k", "l"))
-        addRow(listOf("z", "x", "c", "v", "b", "n", "m", ",", "."))
 
-        // Bottom row
-        val bottomRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(0, 10, 0, 0)
-        }
+        // TITLE
+        contentArea.addView(TextView(this).apply {
+            text = "Type here → tap SEND → text appears on TV"
+            setTextColor(ACCENT_GLOW)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setPadding(20, 10, 20, 20)
+        })
 
-        // DEL
-        bottomRow.addView(specialKey("DEL", 1f) { onKey("DEL") })
-        // SPACE
-        bottomRow.addView(specialKey("SPACE", 4f) { onKey("SPACE") })
-        // ENTER
-        bottomRow.addView(specialKey("ENTER", 2f) { onKey("ENTER") })
-        // Arrow keys row
-        contentArea.addView(bottomRow)
-
-        val arrowRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(0, 10, 0, 0)
-        }
-        arrowRow.addView(specialKey("←", 1f) { sendKeyRaw("KEYCODE_DPAD_LEFT") })
-        arrowRow.addView(specialKey("↑", 1f) { sendKeyRaw("KEYCODE_DPAD_UP") })
-        arrowRow.addView(specialKey("↓", 1f) { sendKeyRaw("KEYCODE_DPAD_DOWN") })
-        arrowRow.addView(specialKey("→", 1f) { sendKeyRaw("KEYCODE_DPAD_RIGHT") })
-        contentArea.addView(arrowRow)
-    }
-
-    private fun addRow(keys: List<String>) {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-        }
-        for (k in keys) {
-            row.addView(specialKey(k, 1f) { onKey(k) })
-        }
-        contentArea.addView(row)
-    }
-
-    private fun specialKey(label: String, weight: Float, action: () -> Unit): Button {
-        return Button(this).apply {
-            text = label
-            textSize = if (label.length > 3) 9f else 16f
+        // TEXT INPUT BOX
+        textInput = EditText(this).apply {
+            hint = "Type anything..."
+            setHintTextColor(Color.parseColor("#666688"))
             setTextColor(TEXT_WHITE)
-            background = roundedBackground(BG_BUTTON, 12f)
-            layoutParams = LinearLayout.LayoutParams(0, 130, weight).apply {
-                marginStart = 3
-                marginEnd = 3
-                topMargin = 3
-                bottomMargin = 3
-            }
-            setPadding(0, 0, 0, 0)
-            isAllCaps = false
-            setOnClickListener { action() }
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+            background = roundedBackground(BG_CARD, 15f)
+            setPadding(40, 40, 40, 40)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            minHeight = 200
+            isSingleLine = false
         }
+        contentArea.addView(textInput)
+
+        // SEND BUTTON
+        val sendBtn = Button(this).apply {
+            text = "▶  SEND TO TV"
+            textSize = 16f
+            setTextColor(TEXT_WHITE)
+            background = roundedBackground(ACCENT, 20f)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                160
+            ).apply { topMargin = 20 }
+            setOnClickListener { sendCurrentText() }
+        }
+        contentArea.addView(sendBtn)
+
+        // CLEAR BUTTON
+        val clearBtn = Button(this).apply {
+            text = "✕  CLEAR"
+            textSize = 14f
+            setTextColor(TEXT_WHITE)
+            background = roundedBackground(BG_BUTTON, 20f)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                130
+            ).apply { topMargin = 15 }
+            setOnClickListener {
+                textInput.text.clear()
+                haptic()
+            }
+        }
+        contentArea.addView(clearBtn)
+
+        // QUICK KEYS row
+        val quickKeys = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, 30, 0, 0)
+        }
+        quickKeys.addView(quickKey("⏎") { sendKeyRaw("KEYCODE_ENTER"); haptic() })
+        quickKeys.addView(quickKey("⌫") { sendKeyRaw("KEYCODE_DEL"); haptic() })
+        quickKeys.addView(quickKey("⎵") { sendTextAsync(" "); haptic() })
+        quickKeys.addView(quickKey("TAB") { sendKeyRaw("KEYCODE_TAB"); haptic() })
+        contentArea.addView(quickKeys)
+
+        // Arrow keys row
+        val arrows = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, 15, 0, 0)
+        }
+        arrows.addView(quickKey("←") { sendKeyRaw("KEYCODE_DPAD_LEFT"); haptic() })
+        arrows.addView(quickKey("↑") { sendKeyRaw("KEYCODE_DPAD_UP"); haptic() })
+        arrows.addView(quickKey("↓") { sendKeyRaw("KEYCODE_DPAD_DOWN"); haptic() })
+        arrows.addView(quickKey("→") { sendKeyRaw("KEYCODE_DPAD_RIGHT"); haptic() })
+        contentArea.addView(arrows)
     }
 
-    private fun onKey(k: String) {
-        haptic()
-        when (k) {
-            "DEL" -> { sendKeyRaw("KEYCODE_DEL"); removeTyped() }
-            "ENTER" -> { sendKeyRaw("KEYCODE_ENTER"); addTyped("\n") }
-            "SPACE" -> { sendTextAsync(" "); addTyped(" ") }
-            else -> { sendTextAsync(k); addTyped(k) }
+    private fun quickKey(label: String, action: () -> Unit): Button = Button(this).apply {
+        text = label
+        textSize = 18f
+        setTextColor(TEXT_WHITE)
+        background = roundedBackground(BG_BUTTON, 15f)
+        layoutParams = LinearLayout.LayoutParams(0, 140, 1f).apply {
+            marginStart = 5
+            marginEnd = 5
         }
+        setOnClickListener { action() }
+    }
+
+    private fun sendCurrentText() {
+        val text = textInput.text.toString()
+        if (text.isEmpty()) {
+            Toast.makeText(this, "Type something first!", Toast.LENGTH_SHORT).show()
+            return
+        }
+        haptic()
+        Toast.makeText(this, "Sending...", Toast.LENGTH_SHORT).show()
+
+        Thread {
+            try {
+                controller.callAttr("send_text", text)
+                runOnUiThread {
+                    Toast.makeText(this, "✅ Sent!", Toast.LENGTH_SHORT).show()
+                    textInput.text.clear()
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this, "Error: " + e.message, Toast.LENGTH_LONG).show()
+                }
+            }
+        }.start()
     }
 
     private fun sendTextAsync(text: String) {
         if (!connected) {
-            toast("Not connected")
+            Toast.makeText(this, "Not connected", Toast.LENGTH_SHORT).show()
             return
         }
         Thread {
             try {
                 controller.callAttr("send_text", text)
             } catch (e: Exception) {
-                runOnUiThread { toast("Text err: " + e.message) }
+                runOnUiThread {
+                    Toast.makeText(this, "Error: " + e.message, Toast.LENGTH_SHORT).show()
+                }
             }
         }.start()
     }
 
-    // ═══════ GAMEPAD - REAL XBOX LAYOUT ═══════
+    // ═══════ GAMEPAD ═══════
     private fun showGamepad() {
         contentArea.removeAllViews()
 
-        // Create a full-height container
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
         }
 
-        // ═══ ROW 1: L1 L2 [spacer] R1 R2 ═══
+        // SHOULDERS
         val shoulders = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -288,7 +324,7 @@ class MainActivity : AppCompatActivity() {
         shoulders.addView(shoulderBtn("R2") { sendKeyRaw("KEYCODE_BUTTON_R2") })
         container.addView(shoulders)
 
-        // ═══ ROW 2: [spacer] Y [spacer] ═══
+        // Y ROW
         val yRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -298,16 +334,13 @@ class MainActivity : AppCompatActivity() {
         yRow.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(0, 1, 2f) })
         container.addView(yRow)
 
-        // ═══ ROW 3: X [D-PAD CENTER] B ═══
+        // MIDDLE: X [D-PAD] B
         val midRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-
-        // X button
         midRow.addView(abxyBtn("X", BLUE) { sendKeyRaw("KEYCODE_BUTTON_X") })
 
-        // D-Pad (center)
         val dpad = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -328,13 +361,10 @@ class MainActivity : AppCompatActivity() {
         dpad.addView(dDown)
 
         midRow.addView(dpad)
-
-        // B button
         midRow.addView(abxyBtn("B", RED) { sendKeyRaw("KEYCODE_BUTTON_B") })
-
         container.addView(midRow)
 
-        // ═══ ROW 4: [spacer] A [spacer] ═══
+        // A ROW
         val aRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -344,7 +374,7 @@ class MainActivity : AppCompatActivity() {
         aRow.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(0, 1, 2f) })
         container.addView(aRow)
 
-        // ═══ ROW 5: SELECT START ═══
+        // SYSTEM ROW
         val sys = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -481,30 +511,15 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {}
     }
 
-    private fun addTyped(s: String) {
-        typedBuffer.append(s)
-        if (typedBuffer.length > 50) typedBuffer.delete(0, typedBuffer.length - 50)
-        typedPreview.text = "⌨  " + typedBuffer.toString()
-    }
-
-    private fun removeTyped() {
-        if (typedBuffer.isNotEmpty()) {
-            typedBuffer.deleteCharAt(typedBuffer.length - 1)
-            typedPreview.text = "⌨  " + typedBuffer.toString()
-        }
-    }
-
     private fun sendKeyRaw(name: String) {
         if (!connected) {
-            toast("Not connected")
+            Toast.makeText(this, "Not connected", Toast.LENGTH_SHORT).show()
             return
         }
         try {
             controller.callAttr("send_key", name)
         } catch (e: Exception) {
-            toast("Key err: " + e.message)
+            Toast.makeText(this, "Key err: " + e.message, Toast.LENGTH_SHORT).show()
         }
     }
-
-    private fun toast(m: String) = Toast.makeText(this, m, Toast.LENGTH_SHORT).show()
 }
